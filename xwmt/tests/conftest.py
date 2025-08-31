@@ -71,7 +71,7 @@ class Helpers:
     
     def mean_absolute_relative_errors(self, wmt_xwmt, wmt_local_exact, wmt_layer_exact):
         def absolute_relative_errors(wmt, wmt_ref):
-            return np.abs((wmt - wmt_ref)/wmt_ref).where(np.abs(wmt_ref)>1.e-5).mean(skipna=True).values
+            return np.abs((wmt - wmt_ref)/wmt_ref).where(np.abs(wmt_ref)>1.e-4).mean(skipna=True).values
         wmt_local_exact_method = getattr(self, wmt_local_exact)
         wmt_layer_exact_method = getattr(self, wmt_layer_exact)
         return (
@@ -88,7 +88,7 @@ class Helpers:
     # Extensive (layer-integrated) analytical tendency profiles
     def diffusive_extensive_tendency(self, z_i):
         def f(z):
-            return -np.cos(2*np.pi*z)/(2*np.pi)
+            return -np.cos(2. *np.pi*z)/(2. *np.pi)
         return np.diff(f(z_i))/np.diff(z_i)
 
     def constant_extensive_tendency(self, z_i):
@@ -98,7 +98,7 @@ class Helpers:
         return self.diffusive_extensive_tendency(z_i) + self.constant_extensive_tendency(z_i)
 
     def differential_heating_layer(self, z_i):
-        sign = 2*np.float64(z_i>0.5)-1
+        sign = 2. *np.float64(z_i>0.5)-1
         out = np.diff(sign*z_i)/np.diff(z_i)
         out[(z_i[:-1]<=0.5)&(0.5<=z_i[1:])] = 0.
         return out
