@@ -30,8 +30,8 @@ dependencies = [
     "pandas",
     "xarray",
     "xhistogram",
-    "xgcm @ git+https://github.com/xgcm/xgcm.git@master",
-    "xbudget @ git+https://github.com/hdrake/xbudget.git@main",
+    "xgcm >= 0.9.0",
+    "xbudget >= 0.5.0",
 ]
 
 [project.urls]
@@ -48,3 +48,6 @@ allow-direct-references = true
 
 [tool.hatch.version]
 path = "xwmt/version.py"
+
+[tool.hatch.build]
+exclude = ["examples/**", "data/**", "docs/**"]
