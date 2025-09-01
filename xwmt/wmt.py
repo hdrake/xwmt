@@ -532,7 +532,7 @@ class WaterMassTransformations(WaterMass):
                             target=bin_bounds,
                             target_data=lam_i,
                             method="conservative",
-                        ).rename({lam_i.name: f"{lam.name}_l_target"})
+                        ).fillna(0.).rename({lam_i.name: f"{lam.name}_l_target"})
                         if integrate:
                             hlamdot_transformed_component = hlamdot_transformed_component.sum(
                                 [self.grid.axes['X'].coords['center'],
@@ -566,7 +566,7 @@ class WaterMassTransformations(WaterMass):
                     target=bin_bounds,
                     target_data=lam_i,
                     method="conservative"
-                ).rename({lam_i.name: f"{lam.name}_l_target"})
+                ).fillna(0.).rename({lam_i.name: f"{lam.name}_l_target"})
                 if integrate:
                     hlamdot_transformed = hlamdot_transformed.sum(
                         [self.grid.axes['X'].coords['center'],
