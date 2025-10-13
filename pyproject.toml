@@ -27,6 +27,7 @@ dependencies = [
     "gsw",
     "numba",
     "numpy",
+    "bottleneck",
     "pandas",
     "xarray",
     "xhistogram",
