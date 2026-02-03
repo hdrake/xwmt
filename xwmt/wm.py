@@ -247,7 +247,7 @@ class WaterMass:
 
         return self.grid._ds[density_name]
 
-    def get_outcrop_lev(self, position="center", incrop=False):
+    def get_outcrop_lev(self, position="center", incrop=False, min_thickness=0.1):
         """
         Find the vertical coordinate level that outcrops at the sea surface, broadcast
         across all other dimensions of the thickness variable (`self.grid._ds.h_name`).
@@ -259,6 +259,8 @@ class WaterMass:
             Default: "center". Other supported option is "outer".
         incrop: bool
             Default: False. If True, returns the seafloor incrop level instead. 
+        min_thickness: float
+            Default: 2.0. Minimum thickness that must be integrated down to before it is considered an outcrop.
         """
         z_coord = self.grid.axes['Z'].coords[position]
         dk = int(2*incrop - 1)
@@ -266,9 +268,9 @@ class WaterMass:
         cumh = h.sel(
                 {z_coord: self.grid._ds[z_coord][::dk]}
             ).cumsum(z_coord)
-        return cumh.idxmax(z_coord).where(cumh.isel({z_coord:-1})!=0.)
+        return cumh.idxmax(z_coord).where(cumh.isel({z_coord:-1}) >= min_thickness)
         
-    def sel_outcrop_lev(self, da, incrop=False, position="center", **kwargs):
+    def sel_outcrop_lev(self, da, incrop=False, min_thickness=0.1, position="center", **kwargs):
         """
         Select `da` at the vertical coordinate level that outcrops at the sea surface. Assumes
         `da` has the same dimensions as `self.grid.Z_metrics[position].sel(**kwargs)`, and broadcasts in all
@@ -282,6 +284,8 @@ class WaterMass:
         position : str
             Position of the desired vertical coordinate in the `self.grid` instance of `xgcm.Grid`.
             Default: "center". Other supported option is "outer".
+        min_thickness: float
+            Default: 2.0. Minimum thickness that must be integrated down to before it is considered an outcrop.
         **kwargs : **dict
             Passed to the `xr.DataArray.sel` method on the vertical thickness.
 
@@ -302,7 +306,7 @@ class WaterMass:
             ).cumsum(z_coord)
         return da.sel(
             {z_coord: cumh.idxmax(z_coord)}
-        ).where(cumh.isel({z_coord:-1})!=0.)
+        ).where(cumh.isel({z_coord:-1}) >= min_thickness)
     
     def expand_surface_array_vertically(self, da_surf, target_position="outer"):
         """
