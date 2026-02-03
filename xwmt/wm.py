@@ -177,9 +177,8 @@ class WaterMass:
         else:
             raise NameError(f"`density_name = {density_name}` is not a supported option.")
         
-        # Prognostic temperature and salinity in MOM6 should be interpreted
-        # as conservative temperature and absolute salinity (following McDougall
-        # et al. 2021).
+        # Prognostic temperature and salinity are, by default, interpreted as
+        # conservative temperature and absolute salinity (following McDougall et al. 2021).
         if self.teos10 and "sa" not in self.grid._ds:
             if self.s_var == "absolute":
                 self.grid._ds['sa'] = self.grid._ds[self.s_name]
