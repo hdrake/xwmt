@@ -13,7 +13,9 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
-
+from importlib.metadata import version as get_version
+from pathlib import Path
+import shutil
 
 # -- Project information -----------------------------------------------------
 
@@ -21,6 +23,8 @@ project = 'xwmt'
 copyright = '2022'
 author = 'xWMT Development Team'
 
+release = get_version(project)
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 
@@ -38,13 +42,37 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
+nbsphinx_execute = "never"
 
+# -- Copy notebooks from repo root/examples into docs/source/examples --------
+
+HERE = Path(__file__).resolve()
+DOCS_SOURCE = HERE.parent                       # docs/source
+REPO_ROOT = HERE.parents[2]                     # up two levels from conf.py
+EXAMPLES_SRC = REPO_ROOT / "examples"
+EXAMPLES_DST = DOCS_SOURCE / "examples"
+
+def _sync_examples():
+    if not EXAMPLES_SRC.exists():
+        return
+
+    # fresh copy so removed notebooks don't linger
+    if EXAMPLES_DST.exists():
+        shutil.rmtree(EXAMPLES_DST)
+    EXAMPLES_DST.mkdir(parents=True, exist_ok=True)
+
+    for nb in EXAMPLES_SRC.rglob("*.ipynb"):
+        rel = nb.relative_to(EXAMPLES_SRC)
+        out = EXAMPLES_DST / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(nb, out)
+
+_sync_examples()
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
 html_theme = 'sphinx_book_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
