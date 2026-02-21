@@ -1,4 +1,4 @@
-{% set name = "xbudget" %}
+{% set name = "xwmt" %}
 {% set version = "0.2.0" %}
 {% set python_min = "3.11" %}
 
@@ -22,9 +22,14 @@ requirements:
     - hatchling
   run:
     - python >={{ python_min }}
+    - gsw
+    - numba
     - numpy
+    - bottleneck
     - xarray
+    - xhistogram
     - xgcm >=0.9.0
+    - xbudget >= 0.6.0
 
 test:
   requires:
@@ -34,7 +39,7 @@ test:
 
 about:
   home: https://github.com/NOAA-GFDL/xwmt
-  summary: Helper functions and metadata conventions for wrangling finite-volume ocean model budgets
+  summary: Water Mass Transformation Routines for xarray
   license: MIT
   license_file: LICENSE
 
