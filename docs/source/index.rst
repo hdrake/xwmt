@@ -4,17 +4,18 @@ xWMT: xarray-friendly Water Mass Transformation analysis
 **xwmt** is a Python package for water mass transformation analysis
 that leverages xarray functionality.
 
-Background
+Overview
 ----------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    objective
-   examples/closed_transformation_budget
-   examples/swmt_decomposition
-   examples/swmt_from_cmip
-   examples/benchmarking
+   
+.. toctree::
+   :maxdepth: 2
+
+   examples
 
 Installation and Contributing
 -----------------------------
