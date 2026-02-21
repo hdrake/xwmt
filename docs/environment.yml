@@ -10,7 +10,9 @@ dependencies:
   - nc-time-axis
   - ipython
   - jupyter
+  - sphinx
+  - nbsphinx
   - jupyter-sphinx
-  - matplotlib
   - sphinx-book-theme
+  - matplotlib
   - pip
