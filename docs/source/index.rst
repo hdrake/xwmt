@@ -11,10 +11,10 @@ Background
    :maxdepth: 2
 
    objective
-   examples/1_interior_transformations
-   examples/2_surface_transformations
-   examples/3_surface_transformations_legacy
-   examples/4_benchmarking_transformation_methods
+   examples/closed_transformation_budget
+   examples/swmt_decomposition
+   examples/swmt_from_cmip
+   examples/benchmarking
 
 Installation and Contributing
 -----------------------------
