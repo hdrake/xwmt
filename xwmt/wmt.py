@@ -158,9 +158,10 @@ class WaterMassTransformations(WaterMass):
         --------
         self.lambdas, self.get_lambda_key
         """
+        density_lambdas = self.lambdas_dict["density"] if "density" in self.lambdas_dict else []
         if lambda_name in self.lambdas_dict:
             return self.lambdas_dict[lambda_name]
-        elif lambda_name in self.lambdas_dict["density"]:
+        elif lambda_name in density_lambdas:
             return lambda_name
         else:
             return None
