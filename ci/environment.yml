@@ -1,13 +1,12 @@
 name: test_env_xwmt
 channels:
   - conda-forge
+  - nodefaults
 dependencies:
-  - python==3.11
+  - python>=3.12
   - black
   - pylint
   - pytest
   - netcdf4
   - gsw
   - pip
-  - pip:
-    - git+https://github.com/hdrake/xbudget.git@main

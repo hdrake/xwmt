@@ -177,9 +177,8 @@ class WaterMass:
         else:
             raise NameError(f"`density_name = {density_name}` is not a supported option.")
         
-        # Prognostic temperature and salinity in MOM6 should be interpreted
-        # as conservative temperature and absolute salinity (following McDougall
-        # et al. 2021).
+        # Prognostic temperature and salinity are, by default, interpreted as
+        # conservative temperature and absolute salinity (following McDougall et al. 2021).
         if self.teos10 and "sa" not in self.grid._ds:
             if self.s_var == "absolute":
                 self.grid._ds['sa'] = self.grid._ds[self.s_name]
@@ -247,62 +246,104 @@ class WaterMass:
 
         return self.grid._ds[density_name]
 
-    def get_outcrop_lev(self, position="center", incrop=False):
+    def get_outcrop_lev(self, position="center", incrop=False, min_thickness=1e-6):
         """
-        Find the vertical coordinate level that outcrops at the sea surface, broadcast
-        across all other dimensions of the thickness variable (`self.grid._ds.h_name`).
-
+        Return the first vertical level (starting from the relevant boundary)
+        whose thickness exceeds `min_thickness`.
+    
+        Assumes the native Z index increases downward (surface -> bottom).
+    
         Parameters
         ----------
-        position: str
-            Position of the desired vertical coordinate in the `self.grid` instance of `xgcm.Grid`.
-            Default: "center". Other supported option is "outer".
-        incrop: bool
-            Default: False. If True, returns the seafloor incrop level instead. 
-        """
-        z_coord = self.grid.axes['Z'].coords[position]
-        dk = int(2*incrop - 1)
-        h = self.grid.Z_metrics[position]
-        cumh = h.sel(
-                {z_coord: self.grid._ds[z_coord][::dk]}
-            ).cumsum(z_coord)
-        return cumh.idxmax(z_coord).where(cumh.isel({z_coord:-1})!=0.)
-        
-    def sel_outcrop_lev(self, da, incrop=False, position="center", **kwargs):
-        """
-        Select `da` at the vertical coordinate level that outcrops at the sea surface. Assumes
-        `da` has the same dimensions as `self.grid.Z_metrics[position].sel(**kwargs)`, and broadcasts in all
-        other dimensions than the vertical.
-
-        Parameters
-        ----------
-        da : xr.DataArray
+        position : {"center", "outer"}
+            Vertical grid position for the coordinate/metric.
         incrop : bool
-            Default: False. If True, returns the seafloor incrop level instead.
-        position : str
-            Position of the desired vertical coordinate in the `self.grid` instance of `xgcm.Grid`.
-            Default: "center". Other supported option is "outer".
-        **kwargs : **dict
-            Passed to the `xr.DataArray.sel` method on the vertical thickness.
-
+            False (default): search from sea surface downward ("outcrop").
+            True: search from seafloor upward ("incrop").
+        min_thickness : float
+            Default: 1e-6. Minimum layer thickness required to count as the first "real" cell.
+    
         Returns
         -------
         xr.DataArray
+            Vertical coordinate value, broadcast across other dims, masked where no
+            layer exceeds `min_thickness`.
         """
-        z_coord = self.grid.axes['Z'].coords[position]
-        dk = int(2*incrop - 1)
+        z_coord = self.grid.axes["Z"].coords[position]
+        h = self.grid.Z_metrics[position]
+    
+        # Native order is surface -> bottom. For incrop, reverse to bottom -> surface.
+        z_native = self.grid._ds[z_coord]
+        z_order = z_native[::-1] if incrop else z_native
+    
+        h_ord = h.sel({z_coord: z_order})
+    
+        thick = h_ord > min_thickness
+    
+        # True only at the first thick cell in boundary->interior order
+        first = (thick.cumsum(z_coord) == 1) & thick
+    
+        out = first.astype("int8").idxmax(z_coord)
+    
+        # Mask columns where no thick cell exists
+        return out.where(thick.any(z_coord))
+
+        
+    def sel_outcrop_lev(self, da, incrop=False, min_thickness=1e-6, position="center", **kwargs):
+        """
+        Select `da` at the first vertical level (starting from the relevant boundary)
+        whose thickness exceeds `min_thickness`.
+    
+        Assumes the native Z index increases downward (surface -> bottom).
+    
+        Parameters
+        ----------
+        da : xr.DataArray
+            DataArray to select from. Must have the same dims as the thickness metric
+            after applying `**kwargs`.
+        incrop : bool
+            Default: False. If True, selects the first thick level from the bottom upward.
+        min_thickness : float
+            Minimum layer thickness required to count as the first "real" cell.
+        position : {"center", "outer"}
+            Vertical grid position for the coordinate/metric.
+        **kwargs : dict
+            Passed to `.sel(**kwargs)` on the thickness metric (and used to validate dims).
+    
+        Returns
+        -------
+        xr.DataArray
+            `da` selected at the diagnosed level, masked where no level exceeds `min_thickness`.
+        """
+        z_coord = self.grid.axes["Z"].coords[position]
+    
+        # Thickness metric, subset as requested
         h = self.grid.Z_metrics[position].sel(**kwargs)
-        if da.dims != h.dims:
+    
+        missing_dims = set(h.dims) - set(da.dims)
+        if missing_dims:
             raise ValueError(
-                "`da` must have the same dimensions as\
-                `self.grid.Z_metrics[position].sel(**kwargs)`"
+                f"`da` is missing required dimensions {missing_dims}. "
+                f"`da.dims={da.dims}`, `h.dims={h.dims}`"
             )
-        cumh = h.sel(
-                {z_coord: self.grid._ds[z_coord][::dk]}
-            ).cumsum(z_coord)
-        return da.sel(
-            {z_coord: cumh.idxmax(z_coord)}
-        ).where(cumh.isel({z_coord:-1})!=0.)
+
+        # Order so the relevant boundary is first along z (native is surface->bottom)
+        z_native = self.grid._ds[z_coord]
+        z_order = z_native[::-1] if incrop else z_native
+    
+        h_ord = h.sel({z_coord: z_order})
+        da_ord = da.sel({z_coord: z_order})
+    
+        thick = h_ord > min_thickness
+    
+        # First thick cell in this boundary->interior ordering
+        first = (thick.cumsum(z_coord) == 1) & thick
+        lev = first.astype("int8").idxmax(z_coord)
+    
+        has_thick = thick.any(z_coord)
+    
+        # Select from the *original* `da` (order doesn’t matter once we have coord values)
+        return da.sel({z_coord: lev}).where(has_thick)
     
     def expand_surface_array_vertically(self, da_surf, target_position="outer"):
         """

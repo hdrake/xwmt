@@ -1,69 +1,53 @@
 xWMT: xarray-friendly Water Mass Transformation analysis
-==========================================================
+=========================================================
 
-**xwmt** is a Python package for water mass transformation analysis that leverages xarray functionality
+**xwmt** is a Python package for water mass transformation analysis
+that leverages xarray functionality.
 
-.. * :doc:`install`
-.. * :doc:`virtualenv`
-.. * :doc:`testing`
+Overview
+----------
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: Background
 
    objective
+   
+.. toctree::
+   :maxdepth: 2
 
-..   install
-..   virtualenv
-..   testing
+   examples
+
+Installation and Contributing
+-----------------------------
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: Installation and Contributing
 
    install
    contrib
 
-.. * :doc:`generate_diags`
-.. * :doc:`sqlite_format`
-.. * :doc:`db2nc`
 
-.. toctree::
-..   :maxdepth: 1
-..   :hidden:
-..   :caption: User Guide
-
-..   generate_diags
-..   sqlite_format
-..   vitals_data_frame
-..   db2nc
-..   plotting
+Help & Reference
+----------------
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: Help & reference
 
    api
 
 
 Quick Install
 -------------
-To install from PyPi:
 
-.. parsed-literal::
+Install from PyPI:
+
+.. code-block:: bash
+
    pip install xwmt
 
-To install from GitHub:
 
-.. parsed-literal::
+Install from GitHub:
+
+.. code-block:: bash
+
    pip install git+https://github.com/NOAA-GFDL/xwmt.git
-
-.. Indices and tables
-.. ==================
-..
-.. * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`

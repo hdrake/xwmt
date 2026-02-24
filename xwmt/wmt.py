@@ -65,25 +65,29 @@ class WaterMassTransformations(WaterMass):
         
         self.method = method
         self.rebin = rebin
-        self.component_dict = {}
-        for component in ["heat", "salt"]:
-            if component in xbudget_dict:
-                if "lambda" in xbudget_dict[component]:
-                    self.component_dict[component] = xbudget_dict[component]["lambda"]
-                elif "surface_lambda" in xbudget_dict[component]:
-                    self.component_dict[component] = xbudget_dict[component]["surface_lambda"]
-                else:
-                    self.component_dict[component] = None
+        self.tracer_dict = {}
+        tracers = [k for k in xbudget_dict.keys() if k!="mass"]
+        for tracer in tracers:
+            if "lambda" in xbudget_dict[tracer]:
+                self.tracer_dict[tracer] = xbudget_dict[tracer]["lambda"]
+            elif "surface_lambda" in xbudget_dict[tracer]:
+                self.tracer_dict[tracer] = xbudget_dict[tracer]["surface_lambda"]
+            else:
+                raise ValueError(f"""xbudget_dict must contain element `["{tracer}"]["lambda"]` `["{tracer}"]["surface_lambda"]`""")
 
         kwargs = {}
+        contains_thickness = False
         if "mass" in xbudget_dict:
             if "thickness" in xbudget_dict["mass"]:
                 kwargs["h_name"] = xbudget_dict["mass"]["thickness"]
+                contains_thickness = True
+        elif not(contains_thickness):
+            raise ValueError("""xbudget_dict must contain element `["mass"]["thickness"]`""")
 
         super().__init__(
             grid,
-            t_name=self.component_dict["heat"],
-            s_name=self.component_dict["salt"],
+            t_name=self.tracer_dict.get("heat"), # defaults to None if not available
+            s_name=self.tracer_dict.get("salt"), # defaults to None if not available
             teos10=teos10,
             cp=cp,
             rho_ref=rho_ref,
@@ -91,11 +95,10 @@ class WaterMassTransformations(WaterMass):
             s_var=s_var,
             **kwargs
         )
-        
-        self.lambdas_dict = {
-            **self.component_dict,
-            "density": ["sigma0", "sigma1", "sigma2", "sigma3", "sigma4"],
-        }
+
+        self.lambdas_dict = self.tracer_dict
+        if all(k in self.tracer_dict for k in ["heat", "salt"]):
+            self.lambdas_dict = {**self.lambdas_dict, **{"density": ["sigma0", "sigma1", "sigma2", "sigma3", "sigma4"]}}
         
         self.xbudget_dict = copy.deepcopy(xbudget_dict)
         for (term, bdict) in self.xbudget_dict.items():
@@ -155,9 +158,10 @@ class WaterMassTransformations(WaterMass):
         --------
         self.lambdas, self.get_lambda_key
         """
+        density_lambdas = self.lambdas_dict["density"] if "density" in self.lambdas_dict else []
         if lambda_name in self.lambdas_dict:
             return self.lambdas_dict[lambda_name]
-        elif lambda_name in self.lambdas_dict["density"]:
+        elif lambda_name in density_lambdas:
             return lambda_name
         else:
             return None
@@ -197,14 +201,14 @@ class WaterMassTransformations(WaterMass):
                     return(k)
 
 
-    def process_names(self, component, term):
+    def process_names(self, tracer, term):
         """
-        Get a tuple containing the names of variables for the density 'component' (temperature or salinity)
-        and the 'process'-specific tendency corresponding to a general 'term' in the tendency equation.
+        Get a tuple containing the names of variables for the 'tracer' and the 'process'-specific
+        tendency corresponding to a general 'term' in the tendency equation.
 
         Parameters
         ----------
-        component : str
+        tracer : str
             Supported options: ["heat", "salt"]
         term : str
             key for tendency variable in the xbudget_dict
@@ -212,7 +216,7 @@ class WaterMassTransformations(WaterMass):
         Returns
         -------
         names : tuple
-            `(component_name, process)`
+            `(tracer_name, process)`
 
         Example
         -------
@@ -220,15 +224,13 @@ class WaterMassTransformations(WaterMass):
         >>> wmt.process_names("heat", "diffusion")
         ('thetao', 'opottempdiff')
         """
-        if component == "heat":
-            process = self.processes_heat_dict.get(term, None)
-        elif component == "salt":
-            process = self.processes_salt_dict.get(term, None)
+        if tracer in self.tracer_dict.keys():
+            process = getattr(self, f"processes_{tracer}_dict").get(term, None)
         else:
-            warnings.warn(f"Component {component} is not defined")
+            warnings.warn(f"Tracer {tracer} is not defined")
             return
-        component_name = self.component_dict.get(component, None)
-        return (component_name, process)
+        tracer_name = self.tracer_dict.get(tracer, None)
+        return (tracer_name, process)
 
     def available_processes(self, available=True):
         """
@@ -242,33 +244,29 @@ class WaterMassTransformations(WaterMass):
 
         Returns
         -------
-        names : tuple
-            `(component_name, process)`
+        processes : list of str
 
         >>> wmt = WaterMassTransformations(grid, xbudget_dict)
         >>> processes = wmt.available_processes()
+        ['diffusion']
         """
-        processes = (
-            self.processes_heat_dict.keys() |
-            self.processes_salt_dict.keys() |
-            self.processes_mass_dict.keys()
-        )
+        processes = set()
+        for tracer in self.xbudget_dict.keys():
+            processes |= getattr(self, f"processes_{tracer}_dict").keys()
         if available:
             _processes = []
             for process in processes:
-                p1 = self.processes_heat_dict.get(process, None)
-                p2 = self.processes_salt_dict.get(process, None)
-                p3 = self.processes_mass_dict.get(process, None)
-                if (((p1 is None) or (p1 is not None and p1 in self.grid._ds)) and
-                    ((p2 is None) or (p2 is not None and p2 in self.grid._ds)) and
-                    ((p3 is None) or (p3 is not None and p3 in self.grid._ds))
-                ):
+                if all([
+                    getattr(self, f"processes_{tracer}_dict").get(process, None) in self.grid._ds
+                    for tracer in self.xbudget_dict.keys()
+                    if getattr(self, f"processes_{tracer}_dict").get(process, None) is not None
+                ]):
                     _processes.append(process)
             return _processes
         else:
             return processes
 
-    def datadict(self, component, term):
+    def datadict(self, tracer, term):
         """
         Get a dictionary that organizes the variables and metadata necessary to evaluate tendency terms.
 
@@ -288,8 +286,7 @@ class WaterMassTransformations(WaterMass):
         >>> wmt = WaterMassTransformations(grid, xbudget_dict)
         >>> ddict = wmt.datadict("heat", "diffusion")
         """
-        
-        (component_name, process) = self.process_names(component, term)
+        (tracer_name, process) = self.process_names(tracer, term)
         
         if process is None or process not in self.grid._ds:
             return
@@ -297,10 +294,10 @@ class WaterMassTransformations(WaterMass):
         tend_arr = self.grid._ds[process]
         
         # Multiply salt tendency by 1000 to convert to g/m^2/s
-        if component=="salt":
+        if tracer=="salt":
             tend_arr = tend_arr*1000.
-            
-        scalar = self.grid._ds[component_name]
+
+        scalar = self.grid._ds[tracer_name]
         if self.grid.axes['Z'].coords["center"] not in scalar.dims:
             scalar = self.expand_surface_array_vertically(scalar, target_position="center")
         
@@ -386,7 +383,7 @@ class WaterMassTransformations(WaterMass):
         ])
 
         # Get layer-integrated potential temperature tendency
-        # from tendency of heat (in W/m^2), lambda = temperature
+        # from tendency of heat (in W/m^2)
         if lambda_name == "heat":
             datadict = self.datadict("heat", term)
             if datadict is not None:
@@ -394,7 +391,7 @@ class WaterMassTransformations(WaterMass):
                 lam = datadict["scalar"] if not prebinned else self.grid._ds[f"{lam_var}_l"]
 
         # Get layer-integrated practical salinity tendency
-        # from tendency of salt (in g/s/m^2), lambda = salinity
+        # from tendency of salt (in g/s/m^2)
         elif lambda_name == "salt":
             datadict = self.datadict("salt", term)
             if datadict is not None:
@@ -405,11 +402,11 @@ class WaterMassTransformations(WaterMass):
         # from heat and salt, lambda = density
         # Here we want to output 2 separate components of the transformation rates:
         # (1) transformation due to heat tend, (2) transformation due to salt tend
-        elif lambda_name in self.lambdas("density"):
+        elif lambda_name in ([] if self.lambdas("density") is None else self.lambdas("density")):
             lam = self.get_density(lambda_name)
             rhos = self.rho_tend(term)
             hlamdot = {}
-            for idx, tend in enumerate(self.component_dict.keys()):
+            for idx, tend in enumerate(["heat", "salt"]):
                 if rhos[idx] is not None:
                     hlamdot[tend] = rhos[idx]*self.rho_ref # Is this correct for non-boussinesq case?
                 elif rhos[idx] is None:
@@ -420,8 +417,14 @@ class WaterMassTransformations(WaterMass):
             elif lam_var in self.grid._ds:
                 lam = self.grid._ds[lam_var]
         
+        elif lambda_name in self.tracer_dict.keys():
+            datadict = self.datadict(lambda_name, term)
+            if datadict is not None:
+                hlamdot = calc_hlamdot_tendency(self.grid, datadict)
+                lam = datadict["scalar"] if not prebinned else self.grid._ds[f"{lam_var}_l"]
+
         else:
-            raise ValueError(f"{lambda_name} is not a supported lambda.")
+            raise ValueError(f"{lambda_name} is not available in the xbudget_dict.")
         
         try:
             return hlamdot, lam
@@ -505,11 +508,10 @@ class WaterMassTransformations(WaterMass):
             else:
                 lam_i = lam.broadcast_like(self.grid._ds[self.grid.axes['Z'].coords['center']])
 
-        if lambda_name in self.lambdas("density"):
+        if lambda_name in ([] if self.lambdas("density") is None else self.lambdas("density")):
             hlamdot_transformed = []
-            for tend in self.component_dict.keys():
-                (component_name, process) = self.process_names(tend, term)
-                if hlamdot[tend] is not None:
+            for component in ["heat", "salt"]:
+                if hlamdot[component] is not None:
                     bin_bounds = bins.values if isinstance(bins, xr.DataArray) else bins
                     # xhistogram cases
                     if (((self.method == "default") and integrate) or
@@ -518,7 +520,7 @@ class WaterMassTransformations(WaterMass):
                             lam,
                             bins=[bin_bounds],
                             dim=dim,
-                            weights=hlamdot[tend].fillna(0.),
+                            weights=hlamdot[component].fillna(0.),
                             bin_dim_suffix="",
                             # TEMPORARY FIX FOR https://github.com/xgcm/xhistogram/issues/16
                             block_size=None
@@ -527,7 +529,7 @@ class WaterMassTransformations(WaterMass):
                     elif (((self.method == "default") and not integrate) or
                           (self.method == "xgcm")):
                         hlamdot_transformed_component = self.grid.transform(
-                            hlamdot[tend].fillna(0.),
+                            hlamdot[component].fillna(0.),
                             "Z",
                             target=bin_bounds,
                             target_data=lam_i,
@@ -539,13 +541,10 @@ class WaterMassTransformations(WaterMass):
                                  self.grid.axes['Y'].coords['center']]
                             )
                     hlamdot_transformed.append(
-                        (hlamdot_transformed_component / np.diff(bin_bounds)).rename(f"{term}_{tend}")
+                        (hlamdot_transformed_component / np.diff(bin_bounds)).rename(f"{term}_{component}")
                     )
             hlamdot_transformed = xr.merge(hlamdot_transformed)
         else:
-            (component_name, process) = self.process_names(
-                "salt" if lambda_name == "salinity" else "heat", term
-            )
             bin_bounds = bins.values if isinstance(bins, xr.DataArray) else bins
             if (((self.method == "default") and integrate) or
                 (self.method == "xhistogram")):

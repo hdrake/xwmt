@@ -2,7 +2,7 @@ name: docs_env_xwmt
 channels:
   - conda-forge
 dependencies:
-  - python==3.11
+  - python==3.12
   - black
   - pylint
   - pytest
@@ -10,7 +10,9 @@ dependencies:
   - nc-time-axis
   - ipython
   - jupyter
+  - sphinx
+  - nbsphinx
   - jupyter-sphinx
-  - matplotlib
   - sphinx-book-theme
+  - matplotlib
   - pip

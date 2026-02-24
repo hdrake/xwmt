@@ -7,7 +7,7 @@ Quick Start Guide
 
 **Minimal installation within an existing environment**
 ```bash
-pip install xwmt
+conda install -c conda-forge xwmt
 ```
 
 **Installing from scratch using `conda`**
